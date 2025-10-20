@@ -116,15 +116,20 @@
                 <div id="handExample">
                     <div class="bg-white rounded-2xl shadow-xl p-6">
                         <h3 class="text-2xl font-bold text-gray-800 mb-4">🎴 起手範例</h3>
-                        <p class="text-gray-600 text-sm mb-4">以下是符合條件的一組起手5張牌範例</p>
+                        <p class="text-gray-600 text-sm mb-4" id="handExampleDescription">以下是符合條件的一組起手5張牌範例</p>
                         
                         <div class="space-y-3" id="handExampleCards">
                             <!-- Cards will be populated here -->
                         </div>
                         
-                        <button onclick="generateNewHandExample()" class="mt-4 w-full px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition font-bold">
-                            🔄 生成新範例
-                        </button>
+                        <div class="mt-4 grid grid-cols-2 gap-3">
+                            <button onclick="generateNewHandExample()" class="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition font-bold">
+                                🔄 生成新範例
+                            </button>
+                            <button onclick="generateRandomHand()" class="px-4 py-2 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 text-white rounded-lg transition font-bold">
+                                🎲 5張隨機
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -606,6 +611,10 @@
         // Generate a random hand example
         function generateHandExample() {
             const handExampleCards = document.getElementById('handExampleCards');
+            const description = document.getElementById('handExampleDescription');
+            
+            // Update description
+            description.textContent = '以下是符合條件的一組起手5張牌範例';
             
             // Build the hand
             let hand = [];
@@ -683,6 +692,63 @@
         // Allow user to generate a new hand example
         function generateNewHandExample() {
             generateHandExample();
+        }
+
+        // Generate a completely random 5-card hand
+        function generateRandomHand() {
+            const handExampleCards = document.getElementById('handExampleCards');
+            const description = document.getElementById('handExampleDescription');
+            
+            // Update description
+            description.textContent = '以下是完全隨機抽取的5張牌起手';
+            
+            // Build the hand
+            let hand = [];
+            
+            // Build available cards pool (all cards in deck)
+            let availableCards = [];
+            for (let i = 0; i < cardCounts.length; i++) {
+                for (let j = 0; j < cardCounts[i]; j++) {
+                    availableCards.push(i);
+                }
+            }
+            
+            // Randomly select 5 cards
+            for (let i = 0; i < 5; i++) {
+                if (availableCards.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * availableCards.length);
+                    const cardId = availableCards[randomIndex];
+                    hand.push({
+                        name: cardNames[cardId],
+                        cardId: cardId
+                    });
+                    // Remove the selected card from available pool
+                    availableCards.splice(randomIndex, 1);
+                }
+            }
+            
+            // Display the hand (no shuffle needed, already random)
+            let html = '';
+            hand.forEach((card, index) => {
+                const bgColor = 'bg-gradient-to-r from-blue-400 to-cyan-400';
+                const icon = '🎲';
+                const label = '隨機';
+                
+                html += `
+                    <div class="flex items-center justify-between p-3 ${bgColor} rounded-lg text-white shadow-md transform hover:scale-105 transition">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-2xl">${icon}</span>
+                            <div>
+                                <div class="font-bold">${card.name}</div>
+                                <div class="text-xs opacity-80">${label}抽取</div>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold opacity-50">#${index + 1}</div>
+                    </div>
+                `;
+            });
+            
+            handExampleCards.innerHTML = html;
         }
 
         // Initialize on page load
