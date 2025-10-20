@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>遊戲王機率計算器 - Card Combination Probability Calculator</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- KaTeX for LaTeX rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+    
+    <!-- Chart.js for visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <style>
+        .probability-display {
+            font-family: 'Courier New', monospace;
+        }
+        .formula-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .result-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        /* 動畫過渡效果 */
+        .main-grid {
+            transition: grid-template-columns 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .card-selector-panel {
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: transform;
+        }
+        
+        .result-panel {
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            transform: translateX(-50px) scale(0.95);
+            will-change: transform, opacity;
+        }
+        
+        .result-panel.show {
+            opacity: 1;
+            transform: translateX(0) scale(1);
+        }
+        
+        /* 全寬模式 */
+        .main-grid.fullwidth {
+            grid-template-columns: 1fr;
+        }
+        
+        @media (min-width: 1024px) {
+            .main-grid:not(.fullwidth) {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        .main-grid.fullwidth .card-selector-panel {
+            grid-column: span 1;
+            max-width: 100%;
+        }
+        
+        .main-grid.fullwidth .result-panel {
+            display: none;
+        }
+        
+        /* 卡牌選擇器在全寬模式下的優化 */
+        .main-grid.fullwidth .card-selector-panel .bg-white {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        /* 確保在手機上也有平滑過渡 */
+        @media (max-width: 1023px) {
+            .main-grid {
+                transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen py-8 px-4">
+    <div class="container mx-auto max-w-7xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-indigo-900 mb-4">
+                🃏 遊戲王起手機率計算器
+            </h1>
+            <p class="text-lg text-gray-700 mb-2">Edit by CHNPIN</p>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="main-grid grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6 fullwidth">
+            
+            <!-- Left Panel: Probability Result -->
+            <div class="result-panel lg:col-span-1 space-y-6">
+                <!-- Custom Probability Result -->
+                <div id="customProbabilityResult">
+                    <div class="bg-gradient-to-r from-green-400 to-blue-500 rounded-2xl shadow-xl p-6 text-white">
+                        <h3 class="text-2xl font-bold mb-4">機率計算結果</h3>
+                        <div class="bg-white bg-opacity-20 rounded-lg p-6 mb-4">
+                            <div class="text-5xl font-bold text-center probability-display mb-3" id="customProbabilityValue">0%</div>
+                            <div class="text-center text-lg" id="customProbabilityFraction">0 / 0</div>
+                        </div>
+                        <div class="text-sm space-y-2 bg-white bg-opacity-10 rounded-lg p-4" id="customCalculationSteps">
+                            <!-- Calculation steps will be shown here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Hand Example -->
+                <div id="handExample">
+                    <div class="bg-white rounded-2xl shadow-xl p-6">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-4">🎴 起手範例</h3>
+                        <p class="text-gray-600 text-sm mb-4">以下是符合條件的一組起手5張牌範例</p>
+                        
+                        <div class="space-y-3" id="handExampleCards">
+                            <!-- Cards will be populated here -->
+                        </div>
+                        
+                        <button onclick="generateNewHandExample()" class="mt-4 w-full px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition font-bold">
+                            🔄 生成新範例
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Card Selector -->
+            <div class="card-selector-panel lg:col-span-1 space-y-6">
+                
+                <!-- Custom Card Selector -->
+                <div class="bg-white rounded-2xl shadow-xl p-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">🎯 起手5張牌組合計算</h2>
+                    <p class="text-gray-600 mb-4">選擇想要在起手中出現的特定卡牌，計算起手5張牌包含這些牌的機率</p>
+                    
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                        <p class="text-sm text-blue-800">
+                            <strong>💡 說明：</strong>起手固定為5張牌。選擇的牌將出現在手牌中，剩餘的牌位將從卡組中隨機抽取。
+                        </p>
+                    </div>
+                    
+                    <!-- Card Selector Grid -->
+                    <div class="mb-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="font-bold text-gray-700">選擇卡牌：</h3>
+                            <button onclick="clearSelection()" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm">
+                                清除選擇
+                            </button>
+                        </div>
+                        
+                        <div class="max-h-96 overflow-y-auto border-2 border-gray-200 rounded-lg p-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="cardSelector">
+                                <!-- Will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Selected Cards Display -->
+                    <div class="bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg p-4">
+                        <h3 class="font-bold text-gray-800 mb-2">已選擇的卡牌：</h3>
+                        <div id="selectedCardsDisplay" class="text-gray-600 min-h-[40px]">
+                            尚未選擇任何卡牌
+                        </div>
+                        <div class="mt-3 space-y-2">
+                            <div class="flex justify-between items-center text-sm">
+                                <div class="text-gray-600">
+                                    已選擇：<span id="totalSelectedCards" class="font-bold text-purple-600">0</span> 張
+                                </div>
+                                <div class="text-gray-600">
+                                    剩餘牌位：<span id="remainingSlots" class="font-bold text-green-600">5</span> 張（隨機）
+                                </div>
+                            </div>
+                            <button onclick="calculateCustomProbability()" class="w-full px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:shadow-lg transition font-bold">
+                                計算機率
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Probability Visualization -->
+                <div id="probabilityVisualization" class="hidden">
+                    <div class="bg-white rounded-2xl shadow-xl p-6">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-4">📊 機率視覺化</h3>
+                        <div class="h-80">
+                            <canvas id="probabilityDonutChart"></canvas>
+                        </div>
+                        <div class="mt-4 grid grid-cols-2 gap-4">
+                            <div class="bg-green-50 rounded-lg p-3 text-center">
+                                <div class="text-sm text-gray-600">成功機率</div>
+                                <div class="text-2xl font-bold text-green-600" id="successRate">0%</div>
+                            </div>
+                            <div class="bg-red-50 rounded-lg p-3 text-center">
+                                <div class="text-sm text-gray-600">失敗機率</div>
+                                <div class="text-2xl font-bold text-red-600" id="failureRate">0%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+
+
+        <!-- Footer -->
+        <div class="text-center text-gray-600 text-sm mt-8">
+            <p>© 2025 卡牌組合機率計算器 | 祝你永遠抽到想要的牌</p>
+        </div>
+    </div>
+
+    <script>
+        // Card deck data with names
+        const cardNames = [
+            "獨角獸", "食人魔", "四星男人", "狗狗", "次吸",
+            "G", "人魚", "灰流", "鳥G", "朔夜",
+            "雷仙神", "鎖鳥", "P頭", "P手", "P身",
+            "停泊地", "自在天", "天國", "場傳", "金謙",
+            "劍指", "微小", "三戰", "強金", "盆回",
+            "帝王谷", "次裂", "根清淨", "泡影", "千查"
+        ];
+        
+        const cardCounts = [1, 2, 3, 1, 1, 2, 1, 3, 1, 1, 1, 1, 1, 2, 1, 1, 2, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1];
+        const totalCards = cardCounts.reduce((a, b) => a + b, 0);
+        const numCardTypes = cardCounts.length;
+        let selectedCards = {}; // Store user's custom selection {cardIndex: count}
+        
+        // Chart instances
+        let donutChart = null;
+        
+        // Factorial function with memoization
+        const factorialCache = {};
+        function factorial(n) {
+            if (n <= 1) return 1;
+            if (factorialCache[n]) return factorialCache[n];
+            factorialCache[n] = n * factorial(n - 1);
+            return factorialCache[n];
+        }
+
+        // Combination C(n, k)
+        function combination(n, k) {
+            if (k > n) return 0;
+            if (k === 0 || k === n) return 1;
+            return factorial(n) / (factorial(k) * factorial(n - k));
+        }
+
+
+        // Initialize card selector for custom combinations
+        function initCardSelector() {
+            const cardSelector = document.getElementById('cardSelector');
+            cardSelector.innerHTML = cardCounts.map((count, idx) => `
+                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border-2 border-transparent hover:border-indigo-300 transition">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex-1">
+                            <div class="font-bold text-gray-800">${cardNames[idx]}</div>
+                            <div class="text-xs text-gray-500">卡組中有 ${count} 張</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="decrementCard(${idx})" class="w-8 h-8 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-bold">
+                            −
+                        </button>
+                        <input 
+                            type="number" 
+                            id="card_${idx}" 
+                            min="0" 
+                            max="${count}" 
+                            value="0"
+                            class="w-16 text-center border-2 border-gray-300 rounded-lg py-1 font-bold"
+                            onchange="updateCardSelection(${idx}, parseInt(this.value))"
+                        >
+                        <button onclick="incrementCard(${idx})" class="w-8 h-8 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-bold">
+                            +
+                        </button>
+                        <span class="text-xs text-gray-500 ml-2">/ ${count}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Update card selection
+        function updateCardSelection(cardIdx, count) {
+            const maxCount = cardCounts[cardIdx];
+            
+            // Validate count
+            if (count < 0) count = 0;
+            if (count > maxCount) count = maxCount;
+            
+            // Update input field
+            document.getElementById(`card_${cardIdx}`).value = count;
+            
+            // Update selection object
+            if (count > 0) {
+                selectedCards[cardIdx] = count;
+            } else {
+                delete selectedCards[cardIdx];
+            }
+            
+            updateSelectedCardsDisplay();
+        }
+        
+        // Increment card count
+        function incrementCard(cardIdx) {
+            const input = document.getElementById(`card_${cardIdx}`);
+            const currentValue = parseInt(input.value) || 0;
+            const maxValue = cardCounts[cardIdx];
+            
+            if (currentValue < maxValue) {
+                updateCardSelection(cardIdx, currentValue + 1);
+            }
+        }
+        
+        // Decrement card count
+        function decrementCard(cardIdx) {
+            const input = document.getElementById(`card_${cardIdx}`);
+            const currentValue = parseInt(input.value) || 0;
+            
+            if (currentValue > 0) {
+                updateCardSelection(cardIdx, currentValue - 1);
+            }
+        }
+        
+        // Clear all selections
+        function clearSelection() {
+            selectedCards = {};
+            
+            // Reset all inputs
+            for (let i = 0; i < numCardTypes; i++) {
+                document.getElementById(`card_${i}`).value = 0;
+            }
+            
+            updateSelectedCardsDisplay();
+            
+            // Reset remaining slots display
+            document.getElementById('remainingSlots').textContent = '5';
+            document.getElementById('remainingSlots').className = 'font-bold text-green-600';
+            
+            // Reset layout to fullwidth mode
+            const mainGrid = document.querySelector('.main-grid');
+            const resultPanel = document.querySelector('.result-panel');
+            
+            resultPanel.classList.remove('show');
+            document.getElementById('probabilityVisualization').classList.add('hidden');
+            
+            setTimeout(() => {
+                mainGrid.classList.add('fullwidth');
+            }, 300);
+        }
+        
+        // Update selected cards display
+        function updateSelectedCardsDisplay() {
+            const display = document.getElementById('selectedCardsDisplay');
+            const totalDisplay = document.getElementById('totalSelectedCards');
+            const remainingSlotsDisplay = document.getElementById('remainingSlots');
+            
+            const selectedEntries = Object.entries(selectedCards);
+            
+            if (selectedEntries.length === 0) {
+                display.innerHTML = '<span class="text-gray-500 italic">尚未選擇任何卡牌</span>';
+                totalDisplay.textContent = '0';
+                remainingSlotsDisplay.textContent = '5';
+                return;
+            }
+            
+            const totalCount = selectedEntries.reduce((sum, [idx, count]) => sum + count, 0);
+            const remainingSlots = 5 - totalCount;
+            
+            totalDisplay.textContent = totalCount;
+            remainingSlotsDisplay.textContent = remainingSlots;
+            
+            // Change color based on remaining slots
+            if (remainingSlots < 0) {
+                remainingSlotsDisplay.className = 'font-bold text-red-600';
+            } else if (remainingSlots === 0) {
+                remainingSlotsDisplay.className = 'font-bold text-yellow-600';
+            } else {
+                remainingSlotsDisplay.className = 'font-bold text-green-600';
+            }
+            
+            display.innerHTML = selectedEntries.map(([idx, count]) => 
+                `<span class="inline-block bg-indigo-500 text-white px-3 py-1 rounded-full text-sm mr-2 mb-2">
+                    ${cardNames[idx]} × ${count}
+                </span>`
+            ).join('');
+        }
+        
+        // Calculate custom probability (for 5-card opening hand)
+        function calculateCustomProbability() {
+            const selectedEntries = Object.entries(selectedCards);
+            
+            if (selectedEntries.length === 0) {
+                alert('請先選擇至少一張卡牌！');
+                return;
+            }
+            
+            const HAND_SIZE = 5; // Fixed hand size
+            
+            // Calculate total cards selected
+            const totalSelected = selectedEntries.reduce((sum, [idx, count]) => sum + parseInt(count), 0);
+            
+            if (totalSelected > HAND_SIZE) {
+                alert(`選擇的卡牌數量超過起手張數（5張）！您選擇了 ${totalSelected} 張。`);
+                return;
+            }
+            
+            if (totalSelected > totalCards) {
+                alert('選擇的卡牌數量超過卡組總數！');
+                return;
+            }
+            
+            // Calculate numerator: product of combinations for selected cards
+            let numerator = 1;
+            const calculationSteps = [];
+            let totalSelectedCardTypes = 0; // Total number of cards of selected types in deck
+            
+            for (const [idx, wantCount] of selectedEntries) {
+                const availableCount = cardCounts[idx];
+                const comb = combination(availableCount, wantCount);
+                numerator *= comb;
+                totalSelectedCardTypes += availableCount;
+                
+                calculationSteps.push({
+                    cardName: cardNames[idx],
+                    available: availableCount,
+                    want: wantCount,
+                    combinations: comb
+                });
+            }
+            
+            // Calculate remaining slots in hand
+            const remainingSlots = HAND_SIZE - totalSelected;
+            
+            // Calculate remaining cards in deck (excluding selected card types)
+            const remainingCardsInDeck = totalCards - totalSelectedCardTypes;
+            
+            // Multiply by combinations of remaining cards
+            const remainingComb = combination(remainingCardsInDeck, remainingSlots);
+            numerator *= remainingComb;
+            
+            // Calculate denominator: total ways to draw 5 cards from deck
+            const denominator = combination(totalCards, HAND_SIZE);
+            
+            // Calculate probability
+            const probability = numerator / denominator;
+            
+            // Display results
+            displayCustomProbability(probability, numerator, denominator, HAND_SIZE, calculationSteps, remainingSlots, remainingCardsInDeck, remainingComb, totalSelected);
+        }
+        
+        // Display custom probability results
+        function displayCustomProbability(probability, numerator, denominator, handSize, steps, remainingSlots, remainingCardsInDeck, remainingComb, totalSelected) {
+            const resultDiv = document.getElementById('customProbabilityResult');
+            const valueDiv = document.getElementById('customProbabilityValue');
+            const fractionDiv = document.getElementById('customProbabilityFraction');
+            const stepsDiv = document.getElementById('customCalculationSteps');
+            
+            // Show result
+            resultDiv.classList.remove('hidden');
+            
+            // Update probability display
+            valueDiv.textContent = (probability * 100).toFixed(6) + '%';
+            fractionDiv.textContent = `${numerator.toLocaleString()} / ${denominator.toLocaleString()}`;
+            
+            // Build calculation steps HTML
+            let stepsHTML = '<div class="bg-white bg-opacity-20 rounded p-3 mb-2">';
+            stepsHTML += '<strong>📋 計算情境：</strong><br>';
+            stepsHTML += `起手 ${handSize} 張牌，其中包含以下特定卡牌（共 ${totalSelected} 張），剩餘 ${remainingSlots} 張為隨機牌<br>`;
+            stepsHTML += '</div>';
+            
+            stepsHTML += '<div class="bg-white bg-opacity-20 rounded p-3 mb-2">';
+            stepsHTML += '<strong>🎯 分子計算：</strong><br><br>';
+            
+            stepsHTML += '<strong>1. 特定卡牌的組合數：</strong><br>';
+            steps.forEach(step => {
+                stepsHTML += `\\(\\binom{${step.available}}{${step.want}}\\) = ${step.combinations.toLocaleString()} （${step.cardName}：從${step.available}張中選${step.want}張）<br>`;
+            });
+            
+            const specificCardsComb = steps.reduce((prod, s) => prod * s.combinations, 1);
+            stepsHTML += `<br>特定卡牌組合 = ${steps.map(s => s.combinations).join(' × ')} = ${specificCardsComb.toLocaleString()}<br><br>`;
+            
+            stepsHTML += '<strong>2. 剩餘牌位的組合數：</strong><br>';
+            stepsHTML += `從剩餘的 ${remainingCardsInDeck} 張牌中選 ${remainingSlots} 張<br>`;
+            stepsHTML += `\\(\\binom{${remainingCardsInDeck}}{${remainingSlots}}\\) = ${remainingComb.toLocaleString()}<br><br>`;
+            
+            stepsHTML += '<strong>3. 總分子：</strong><br>';
+            stepsHTML += `${specificCardsComb.toLocaleString()} × ${remainingComb.toLocaleString()} = ${numerator.toLocaleString()}`;
+            stepsHTML += '</div>';
+            
+            stepsHTML += '<div class="bg-white bg-opacity-20 rounded p-3 mb-2">';
+            stepsHTML += '<strong>📊 分母計算（所有可能的起手）：</strong><br>';
+            stepsHTML += `從 ${totalCards} 張牌中抽 ${handSize} 張的所有組合數<br>`;
+            stepsHTML += `\\(\\binom{${totalCards}}{${handSize}}\\) = ${denominator.toLocaleString()}`;
+            stepsHTML += '</div>';
+            
+            stepsHTML += '<div class="bg-white bg-opacity-20 rounded p-3">';
+            stepsHTML += '<strong>✨ 最終機率：</strong><br>';
+            stepsHTML += `\\(P = \\frac{${numerator.toLocaleString()}}{${denominator.toLocaleString()}} = ${probability.toFixed(10)}\\)<br>`;
+            stepsHTML += `= <strong>${(probability * 100).toFixed(6)}%</strong>`;
+            stepsHTML += '</div>';
+            
+            stepsDiv.innerHTML = stepsHTML;
+            
+            // Re-render LaTeX
+            renderMathInElement(stepsDiv, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '\\(', right: '\\)', display: false}
+                ]
+            });
+            
+            // Generate hand example
+            generateHandExample();
+            
+            // Store probability for animation
+            lastProbability = probability;
+            
+            // Trigger layout animation: fullwidth -> split view
+            const mainGrid = document.querySelector('.main-grid');
+            const resultPanel = document.querySelector('.result-panel');
+            
+            // Remove fullwidth class to trigger animation
+            mainGrid.classList.remove('fullwidth');
+            
+            // Show result panel with animation
+            setTimeout(() => {
+                resultPanel.classList.add('show');
+            }, 100);
+            
+            // Update visualization
+            setTimeout(() => {
+                document.getElementById('probabilityVisualization').classList.remove('hidden');
+                updateDonutChart(probability);
+                updateSuccessRates(probability);
+            }, 800); // Wait for layout animation to complete (0.8s)
+        }
+
+        // Update donut chart
+        function updateDonutChart(probability) {
+            const ctx = document.getElementById('probabilityDonutChart').getContext('2d');
+            
+            if (donutChart) {
+                donutChart.destroy();
+            }
+            
+            const successProb = probability * 100;
+            const failureProb = 100 - successProb;
+            
+            donutChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['成功抽到', '未抽到'],
+                    datasets: [{
+                        data: [successProb, failureProb],
+                        backgroundColor: [
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(239, 68, 68, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(34, 197, 94, 1)',
+                            'rgba(239, 68, 68, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: {
+                                    size: 14
+                                },
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.parsed.toFixed(4) + '%';
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        animateScale: true,
+                        duration: 1000
+                    }
+                }
+            });
+        }
+        
+        // Update success rates display
+        function updateSuccessRates(probability) {
+            const successProb = (probability * 100).toFixed(4);
+            const failureProb = ((1 - probability) * 100).toFixed(4);
+            
+            document.getElementById('successRate').textContent = successProb + '%';
+            document.getElementById('failureRate').textContent = failureProb + '%';
+        }
+        
+        // Generate a random hand example
+        function generateHandExample() {
+            const handExampleCards = document.getElementById('handExampleCards');
+            
+            // Build the hand
+            let hand = [];
+            
+            // Add selected cards
+            for (let cardId in selectedCards) {
+                const count = selectedCards[cardId];
+                for (let i = 0; i < count; i++) {
+                    hand.push({
+                        name: cardNames[cardId],
+                        type: 'selected',
+                        cardId: cardId
+                    });
+                }
+            }
+            
+            // Calculate how many random cards we need
+            const randomCardsNeeded = 5 - hand.length;
+            
+            // Build available cards pool (excluding selected cards)
+            let availableCards = [];
+            for (let i = 0; i < cardCounts.length; i++) {
+                const selectedCount = selectedCards[i] || 0;
+                const availableCount = cardCounts[i] - selectedCount;
+                for (let j = 0; j < availableCount; j++) {
+                    availableCards.push(i);
+                }
+            }
+            
+            // Randomly select cards from the available pool
+            for (let i = 0; i < randomCardsNeeded; i++) {
+                if (availableCards.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * availableCards.length);
+                    const cardId = availableCards[randomIndex];
+                    hand.push({
+                        name: cardNames[cardId],
+                        type: 'random',
+                        cardId: cardId
+                    });
+                    // Remove the selected card from available pool
+                    availableCards.splice(randomIndex, 1);
+                }
+            }
+            
+            // Shuffle the hand to make it more realistic
+            for (let i = hand.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [hand[i], hand[j]] = [hand[j], hand[i]];
+            }
+            
+            // Display the hand
+            let html = '';
+            hand.forEach((card, index) => {
+                const bgColor = card.type === 'selected' ? 'bg-gradient-to-r from-yellow-400 to-orange-400' : 'bg-gradient-to-r from-gray-400 to-gray-500';
+                const icon = card.type === 'selected' ? '⭐' : '🎴';
+                const label = card.type === 'selected' ? '指定' : '隨機';
+                
+                html += `
+                    <div class="flex items-center justify-between p-3 ${bgColor} rounded-lg text-white shadow-md transform hover:scale-105 transition">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-2xl">${icon}</span>
+                            <div>
+                                <div class="font-bold">${card.name}</div>
+                                <div class="text-xs opacity-80">${label}卡牌</div>
+                            </div>
+                        </div>
+                        <div class="text-2xl font-bold opacity-50">#${index + 1}</div>
+                    </div>
+                `;
+            });
+            
+            handExampleCards.innerHTML = html;
+        }
+
+        // Allow user to generate a new hand example
+        function generateNewHandExample() {
+            generateHandExample();
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize displays
+            initCardSelector();
+            
+            // Render LaTeX
+            renderMathInElement(document.body, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '\\(', right: '\\)', display: false}
+                ]
+            });
+        });
+    </script>
+</body>
+</html>
