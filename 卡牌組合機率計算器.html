@@ -157,9 +157,35 @@
                             </button>
                         </div>
                         
+                        <!-- Search Box -->
+                        <div class="mb-3">
+                            <div class="relative">
+                                <input 
+                                    type="text" 
+                                    id="cardSearchInput" 
+                                    placeholder="搜尋卡牌名稱..." 
+                                    oninput="searchCards()"
+                                    class="w-full px-4 py-2 pl-10 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none transition"
+                                />
+                                <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xl">🔍</span>
+                                <button 
+                                    onclick="clearSearch()" 
+                                    id="clearSearchBtn"
+                                    class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition hidden"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                            <div class="mt-2 text-sm text-gray-600" id="searchResultCount"></div>
+                        </div>
+                        
                         <div class="max-h-96 overflow-y-auto border-2 border-gray-200 rounded-lg p-4">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="cardSelector">
                                 <!-- Will be populated by JavaScript -->
+                            </div>
+                            <div id="noSearchResults" class="hidden text-center py-8 text-gray-500">
+                                <div class="text-4xl mb-2">🔍</div>
+                                <div>找不到符合的卡牌</div>
                             </div>
                         </div>
                     </div>
@@ -256,7 +282,7 @@
         function initCardSelector() {
             const cardSelector = document.getElementById('cardSelector');
             cardSelector.innerHTML = cardCounts.map((count, idx) => `
-                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border-2 border-transparent hover:border-indigo-300 transition">
+                <div id="cardItem_${idx}" class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border-2 border-transparent hover:border-indigo-300 transition">
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex-1">
                             <div class="font-bold text-gray-800">${cardNames[idx]}</div>
@@ -325,6 +351,61 @@
             if (currentValue > 0) {
                 updateCardSelection(cardIdx, currentValue - 1);
             }
+        }
+        
+        // Search cards by name
+        function searchCards() {
+            const searchInput = document.getElementById('cardSearchInput');
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const clearBtn = document.getElementById('clearSearchBtn');
+            const resultCount = document.getElementById('searchResultCount');
+            const noResults = document.getElementById('noSearchResults');
+            const cardSelector = document.getElementById('cardSelector');
+            
+            // Show/hide clear button
+            if (searchTerm) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+            
+            let visibleCount = 0;
+            
+            // Filter cards
+            for (let i = 0; i < numCardTypes; i++) {
+                const cardItem = document.getElementById(`cardItem_${i}`);
+                const cardName = cardNames[i].toLowerCase();
+                
+                if (searchTerm === '' || cardName.includes(searchTerm)) {
+                    cardItem.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    cardItem.classList.add('hidden');
+                }
+            }
+            
+            // Update result count
+            if (searchTerm) {
+                resultCount.textContent = `找到 ${visibleCount} 張卡牌`;
+            } else {
+                resultCount.textContent = '';
+            }
+            
+            // Show "no results" message
+            if (visibleCount === 0 && searchTerm) {
+                cardSelector.classList.add('hidden');
+                noResults.classList.remove('hidden');
+            } else {
+                cardSelector.classList.remove('hidden');
+                noResults.classList.add('hidden');
+            }
+        }
+        
+        // Clear search
+        function clearSearch() {
+            document.getElementById('cardSearchInput').value = '';
+            searchCards();
+            document.getElementById('cardSearchInput').focus();
         }
         
         // Clear all selections
